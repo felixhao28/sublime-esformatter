@@ -9,31 +9,45 @@ class NodeCheck:
     Being a tri-state class it's better not accessing it's properties but only call mightWork()'''
     def __init__(self):
         self.works = False
-        self.checkDone = False
         self.nodeName = "esformatter"
+        self.cwd = "."
 
-    def mightWork(self, path):
-        if (self.checkDone):
-            return self.works
+    def mightWork(self, path, cwd):
 
         if (path):
             self.nodeName = path
+        if (cwd):
+            self.cwd = cwd
 
         self.tryWithSelfName()
 
         if (self.works is False):
-            sublime.error_message("It looks like esformatter is not installed.\nPlease make sure that it is installed and is in your PATH")
+            sublime.error_message("It looks like esformatter is not installed.\nPlease make sure that it is installed globally or in project node_modules folder")
 
         return self.works
 
     def tryWithSelfName(self):
         try:
             # call node version with whatever path is defined in nodeName
-            subprocess.Popen([self.nodeName, "--version"], bufsize=1, stdin=None, stdout=None, stderr=None, startupinfo=getStartupInfo())
+            esformatter_executable = findExecutablePath(self.cwd)
+            if (esformatter_executable):
+                subprocess.Popen(["node", esformatter_executable, "--version"], bufsize=1, stdin=None, stdout=None, stderr=None, startupinfo=getStartupInfo())
+            else:
+                subprocess.Popen([self.nodeName, "--version"], bufsize=1, stdin=None, stdout=None, stderr=None, startupinfo=getStartupInfo())
             self.works = True
         except OSError as e:
             self.works = False
 
+def findExecutablePath( folder):
+    target = os.path.join(folder, 'node_modules\\esformatter\\bin\\esformatter')
+    if (os.path.isfile(target)):
+        return target
+    else:
+        parent = os.path.abspath(os.path.join(folder, os.pardir))
+        if (parent != folder):
+            return findExecutablePath(parent)
+        else:
+            return None
 
 NODE = NodeCheck()
 # I don't really like this, but formatting is async, so I must
@@ -65,8 +79,8 @@ class EsformatterCommand(sublime_plugin.TextCommand):
     def run(self, edit, save=False, ignoreSelection=False):
         # Settings for formatting
         settings = sublime.load_settings("EsFormatter.sublime-settings")
-
-        if (NODE.mightWork(settings.get("esformatter_path")) == False):
+        cwd = os.path.dirname(getFilePath(self.view))
+        if (NODE.mightWork(settings.get("esformatter_path"), cwd) == False):
             return
 
         if (ignoreSelection or len(self.view.sel()) == 1 and self.view.sel()[0].empty()):
@@ -173,19 +187,27 @@ class EsformatterCommand(sublime_plugin.TextCommand):
 class NodeCall(threading.Thread):
     def __init__(self, code, path, id=0, region=None):
         self.code = code.encode('utf-8')
+        self.cwd = os.path.dirname(path)
         self.region = region
         self.result = None
         threading.Thread.__init__(self)
 
     def run(self):
         try:
+            esformatter_executable = findExecutablePath(self.cwd)
+            if (esformatter_executable):
+                cmd = ["node", esformatter_executable]
+            else:
+                cmd = ["esformatter"]
+
             process = subprocess.Popen(
-                ["esformatter"],
+                cmd,
                 bufsize=160*len(self.code),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 startupinfo=getStartupInfo())
+
             if ST2:
                 stdout, stderr = process.communicate(self.code)
                 self.result = re.sub(r'(\r|\r\n|\n)\Z', '', stdout).decode('utf-8')
@@ -217,7 +239,7 @@ def getFilePath(view):
     if (path):
         return str(path)
     else:
-        return '';
+        return ''
 
 class EsformatUpdateContent(sublime_plugin.TextCommand):
     def run(self, edit, text=None, regions=None):
