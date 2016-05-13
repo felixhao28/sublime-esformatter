@@ -38,7 +38,7 @@ class NodeCheck:
         except OSError as e:
             self.works = False
 
-def findExecutablePath( folder):
+def findExecutablePath(folder):
     target = os.path.join(folder, 'node_modules\\esformatter\\bin\\esformatter')
     if (os.path.isfile(target)):
         return target
@@ -48,6 +48,20 @@ def findExecutablePath( folder):
             return findExecutablePath(parent)
         else:
             return None
+
+def findLocalConfigPath(folder):
+    settings = sublime.load_settings("EsFormatter.sublime-settings")
+    configNames = settings.get("esformatter_config_file")
+    for configName in configNames:
+        target = os.path.join(folder, configName)
+        if (os.path.isfile(target)):
+            return target
+
+    parent = os.path.abspath(os.path.join(folder, os.pardir))
+    if (parent != folder):
+        return findLocalConfigPath(parent)
+    else:
+        return None
 
 NODE = NodeCheck()
 # I don't really like this, but formatting is async, so I must
@@ -199,6 +213,11 @@ class NodeCall(threading.Thread):
                 cmd = ["node", esformatter_executable]
             else:
                 cmd = ["esformatter"]
+
+            esformatter_config_file = findLocalConfigPath(self.cwd)
+            if (esformatter_config_file):
+                cmd.append("--config")
+                cmd.append(esformatter_config_file)
 
             process = subprocess.Popen(
                 cmd,
