@@ -208,6 +208,7 @@ class NodeCall(threading.Thread):
 
     def run(self):
         try:
+            sublime.status_message("Formatting file...")
             esformatter_executable = findExecutablePath(self.cwd)
             if (esformatter_executable):
                 cmd = ["node", esformatter_executable]
