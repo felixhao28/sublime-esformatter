@@ -9,7 +9,7 @@ class NodeCheck:
     Being a tri-state class it's better not accessing it's properties but only call mightWork()'''
     def __init__(self):
         self.works = False
-        self.nodeName = "esformatter"
+        self.nodeName = "esformatter.cmd" if ON_WINDOWS else "esformatter"
         self.cwd = "."
 
     def mightWork(self, path, cwd):
@@ -213,7 +213,7 @@ class NodeCall(threading.Thread):
             if (esformatter_executable):
                 cmd = ["node", esformatter_executable]
             else:
-                cmd = ["esformatter"]
+                cmd = ["esformatter.cmd" if ON_WINDOWS else "esformatter"]
 
             esformatter_config_file = findLocalConfigPath(self.cwd)
             if (esformatter_config_file):
